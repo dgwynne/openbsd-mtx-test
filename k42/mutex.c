@@ -10,74 +10,24 @@ mtx_init(struct mutex *mtx)
 	mtx->mtx_tail = NULL;
 }
 
+static inline struct mutex *
+mtx_cas(struct mutex **mtxp, struct mutex *e, struct mutex *p)
+{
+	return atomic_cas_ptr(mtxp, e, p);
+}
+
 int
 mtx_enter_try(struct mutex *mtx)
 {
 	struct mutex *tail;
 
-	tail = atomic_cas_ptr(&mtx->mtx_tail, NULL, mtx);
+	tail = mtx_cas(&mtx->mtx_tail, NULL, mtx);
 	if (tail == NULL) {
 		membar_enter_after_atomic();
 		return (1);
 	}
 
 	return (0);
-}
-
-#if 0
-void
-mtx_enter(struct mutex *mtx)
-{
-	struct mutex self = { .mtx_next = NULL };
-	struct mutex *v;
-	void *n;
-
-	v = atomic_swap_ptr(&mtx->mtx_tail, &self);
-	if (v != NULL) {
-		WRITE_ONCE(self.mtx_tail, (struct mutex *)1);
-		WRITE_ONCE(v->mtx_next, &self);
-		while (READ_ONCE(self.mtx_tail))
-			CPU_BUSY_CYCLE();
-	}
-
-	v = READ_ONCE(self.mtx_next);
-	WRITE_ONCE(mtx->mtx_next, v);
-	if (v == NULL) {
-		v = atomic_cas_ptr(&mtx->mtx_tail, &self, mtx);
-		if (v != &self) {
-			while ((v = READ_ONCE(self.mtx_next)) == NULL)
-				CPU_BUSY_CYCLE();
-			WRITE_ONCE(mtx->mtx_next, v);
-		}
-	}
-
-	membar_enter();
-}
-
-void
-mtx_leave(struct mutex *mtx)
-{
-	struct mutex *v;
-
-	membar_exit();
-
-	v = READ_ONCE(mtx->mtx_next);
-	if (v == NULL) {
-		if (atomic_cas_ptr(&mtx->mtx_tail, mtx, NULL) == mtx)
-			return;
-
-		while ((v = READ_ONCE(mtx->mtx_next)) == NULL)
-			CPU_BUSY_CYCLE();
-	}
-
-	v->mtx_tail = NULL;
-}
-#else
-
-static inline struct mutex *
-mtx_cas(struct mutex **mtxp, struct mutex *e, struct mutex *p)
-{
-	return atomic_cas_ptr(mtxp, e, p);
 }
 
 void
@@ -149,4 +99,3 @@ mtx_leave(struct mutex *mtx)
 
 	v->mtx_tail = NULL;
 }
-#endif
