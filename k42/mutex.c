@@ -50,7 +50,7 @@ mtx_enter(struct mutex *mtx)
 
 		/* lock appears to be held */
 		self.mtx_next = NULL;
-		self.mtx_tail = (struct mutex *)1;
+		self.mtx_tail = &self;
 
 		ov = mtx_cas(&mtx->mtx_tail, v, &self);
 		if (ov != v) {
