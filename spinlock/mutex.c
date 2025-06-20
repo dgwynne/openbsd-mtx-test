@@ -1,3 +1,7 @@
+/*
+ * this implements a cas based spinlock.
+ */
+
 #include <pthread.h>
 
 #include <mutex.h>
