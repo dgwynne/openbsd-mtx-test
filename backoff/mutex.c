@@ -1,3 +1,11 @@
+/*
+ * this implements a cas based spinlock using exponential backoff
+ * between attempts to try take the lock.
+ *
+ * it's supposed to implement the kernel mutex from
+ * src/sys/kern/kern_lock.c r1.76 and r1.79.
+ */
+
 #include <pthread.h>
 
 #include <mutex.h>
