@@ -22,7 +22,16 @@ mtx_init(struct mutex *mtx)
 int
 mtx_enter_try(struct mutex *mtx)
 {
-	return (0);
+	pthread_t self = pthread_self();
+	pthread_t owner;
+
+	_spinlock(&mtx->mtx_spin);
+	owner = mtx->mtx_owner;
+	if (owner == NULL)
+		mtx->mtx_owner = self;
+	_spinunlock(&mtx->mtx_spin);
+
+	return (owner == NULL);
 }
 
 void
@@ -37,11 +46,12 @@ mtx_enter(struct mutex *mtx)
 	if (owner == NULL)
 		mtx->mtx_owner = self;
 	else {
-		/* sigh */
-		if (mtx->mtx_waiting.tqh_last == NULL) {
+		if (mtx->mtx_waiting.tqh_last == NULL) { /* sigh */
+			/* work around TAILQ_HEAD_INITIALIZER */
 			mtx->mtx_waiting.tqh_last =
 			    &mtx->mtx_waiting.tqh_first;
 		}
+
 		TAILQ_INSERT_TAIL(&mtx->mtx_waiting, &w, entry);
 	}
 	_spinunlock(&mtx->mtx_spin);
