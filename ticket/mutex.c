@@ -1,3 +1,11 @@
+/*
+ * a basic ticket lock.
+ *
+ * this is not a good candidate for the kernel lock because
+ * mtx_enter_try is too hard (or impossible?) with separate words for
+ * the tick and next counters.
+ */
+
 #include <pthread.h>
 
 #include <mutex.h>
