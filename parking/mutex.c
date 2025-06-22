@@ -109,6 +109,18 @@ mtx_enter(struct mutex *mtx)
 		abort();
 	}
 
+	for (i = 0; i < 40; i++) {
+		if (ISSET(owner, 1))
+			break;
+		CPU_BUSY_CYCLE();
+		owner = mtx->mtx_owner;
+		if (owner == 0) {
+			owner = atomic_cas_ulong(&mtx->mtx_owner, 0, self);
+			if (owner == 0)
+				goto locked;
+		}
+	}
+
 	/* take the really slow path */
 	p = mtx_park(mtx);
 
