@@ -114,6 +114,23 @@ mtx_enter(struct mutex *mtx)
 	unsigned long m;
 	int cond;
 
+	/* Extra bit from the Spinning section after Barging */
+
+	/* Fast path: */
+	if (atomic_cas_ulong(&mtx->mtx_owner, 0, self) == 0)
+		goto locked;
+
+	for (i = 40; i--;) {
+		/* Do not spin if there is a queue. */
+		owner = mtx->mtx_owner;
+		if (owner & MTX_HASPARKED)
+			break;
+		/* Try to get the lock. */
+		if (atomic_cas_ulong(&mtx->mtx_owner, 0, self) == 0)
+			goto locked;
+		CPU_BUSY_CYCLE();
+	}
+
 	p = mtx_park(mtx);
 	for (;;) {
 		owner = mtx->mtx_owner; /* load current state */
