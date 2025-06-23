@@ -1,5 +1,11 @@
 /*
- * this implements a cas based spinlock.
+ * this implements a cas based spinlock, but when contended it reads
+ * mtx_owner until it clears.
+ *
+ * the idea is to let the lock cacheline move to a shared state,
+ * but this doesn't work that well if the lock is on the same cacheline
+ * as whatever is being modified inside the critical section, or if
+ * the critical sections are very short.
  */
 
 #include <pthread.h>
