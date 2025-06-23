@@ -32,4 +32,34 @@ $ ./ticket/obj/test -n 8
 starting 8 threads for 1000000 loops
 real time: 6.73s, user time: 45.32s
 $ 
-``` 
+```
+
+## Context
+
+According to `src/sys/sys/mutex.h` in the OpenBSD source tree:
+
+```
+/*
+ * A mutex is:
+ *  - owned by a cpu.
+ *  - non-recursive.
+ *  - spinning.
+ *  - not providing mutual exclusion between processes, only cpus.
+ *  - providing interrupt blocking when necessary.
+ *
+ * Different mutexes can be nested, but not interleaved. This is ok:
+ * "mtx_enter(foo); mtx_enter(bar); mtx_leave(bar); mtx_leave(foo);"
+ * This is _not_ ok:
+ * "mtx_enter(foo); mtx_enter(bar); mtx_leave(foo); mtx_leave(bar);"
+ */
+```
+
+Additionally, mutexes also provide runtime checks to ensure that
+CPUs don't lock against themselves, and they don't unlock a mutex
+they don't own. This means it is highly desirable that the mutex
+data structure (or algorithm) records the owner of the mutex. This
+is currently implemented by using a pointer to the current CPUs
+`struct cpu_info` as the lock word.
+
+Keeping the `struct mutex` data structure as small as possible is
+also highly desirable.
