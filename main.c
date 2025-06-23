@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <time.h>
 #include <err.h>
@@ -82,12 +83,13 @@ main(int argc, char *argv[])
 	while ((ch = getopt(argc, argv, "l:n:")) != -1) {
 		switch (ch) {
 		case 'n':
-			nthreads = strtonum(optarg, 1, 128, &errstr);
+			nthreads = strtonum(optarg, 1, ncpus, &errstr);
 			if (errstr != NULL)
 				errx(1, "nthreads: %s", errstr);
 			break;
 		case 'l':
-			loops = strtonum(optarg, 1, LOOPS, &errstr);
+			loops = strtonum(optarg, 1, UINT64_MAX / ncpus,
+			    &errstr);
 			if (errstr != NULL)
 				errx(1, "loops: %s", errstr);
 			break;
