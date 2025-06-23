@@ -199,7 +199,7 @@ mtx_leave(struct mutex *mtx)
 	unsigned long owner;
 
 	membar_exit_before_atomic();
-	owner = atomic_swap_ulong(&mtx->mtx_owner, 0);
+	owner = atomic_cas_ulong(&mtx->mtx_owner, self, 0);
 	if (owner != self) {
 		struct mtx_park *p;
 		unsigned long m;
@@ -214,6 +214,7 @@ mtx_leave(struct mutex *mtx)
 
 		p = mtx_park(mtx);
 		m = mtx_enter_park(p);
+		mtx->mtx_owner = 0;
 		TAILQ_FOREACH(w, &p->waiters, entry) {
 			if (w->mtx == mtx) {
 				w->mtx = NULL;
