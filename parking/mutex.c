@@ -19,12 +19,12 @@
  *
  * unlike WTF::Lock, a woken CPU is responsible for taking itself
  * out of the parking lot. this reduces the number of states that are
- * represented by the lock word in struct mutex and simplifies the
- * both the acquisition and release of the lock. by keeping the waiter
- * in the parking lot until the lock is acquired, we can amortise the
- * cost of adding and removing the waiter from the list if a woken
- * cpu loses a race to a "barging" cpu. this also maintains it's
- * position in the queue, making the lock more fair.
+ * represented by the lock word in struct mutex, and simplifies both
+ * the acquisition and release of the lock. by keeping the waiter in
+ * the parking lot until the lock is acquired, we amortise the cost
+ * of adding and removing the waiter from the list if a woken cpu
+ * loses a race to a "barging" cpu. this also maintains it's position
+ * in the queue, making the lock more fair.
  *
  * 1. https://webkit.org/blog/6161/locking-in-webkit/
  */
