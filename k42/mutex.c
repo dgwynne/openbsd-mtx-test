@@ -1,3 +1,8 @@
+/*
+ * this is the K42 MCS variant according to
+ * https://www.cs.rochester.edu/research/synchronization/pseudocode/ss.html
+ */
+
 #include <pthread.h>
 
 #include <mutex.h>
