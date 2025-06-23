@@ -1,3 +1,34 @@
+/*
+ * this is heavily inspired by the WTF::Lock from Locking in WebKit[1]
+ * and some of the references it provides.
+ *
+ * the big idea taken from WTF::Lock is to separate the lock from
+ * the machinery used to wait for the lock. this machinery is a
+ * parking lot for cpus waiting to access mutexes, which is analogous
+ * to what futex provides in userland, and the sleep queues underneath
+ * kernel sleeps (and therefore sleeping locks like rwlock and cond).
+ *
+ * the parking lot allows struct mutex to remain small as it only
+ * needs to record ownership and whether another cpu is "parked"
+ * waiting for the lock.
+ *
+ * unlike WTF::Lock, the mutex is still a spinning lock. the parking
+ * lot is used to publish the location each cpu is spinning on so the
+ * current owner can locate a waiting cpu and write to the location
+ * the other cpu is spinning on.
+ *
+ * unlike WTF::Lock, a woken CPU is responsible for taking itself
+ * out of the parking lot. this reduces the number of states that are
+ * represented by the lock word in struct mutex and simplifies the
+ * both the acquisition and release of the lock. by keeping the waiter
+ * in the parking lot until the lock is acquired, we can amortise the
+ * cost of adding and removing the waiter from the list if a woken
+ * cpu loses a race to a "barging" cpu. this also maintains it's
+ * position in the queue, making the lock more fair.
+ *
+ * 1. https://webkit.org/blog/6161/locking-in-webkit/
+ */
+
 #include <pthread.h>
 
 #include <mutex.h>
