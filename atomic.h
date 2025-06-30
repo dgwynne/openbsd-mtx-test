@@ -34,3 +34,8 @@ membar_datadep_consumer(void)
 })
 
 #define KASSERT(c) assert(c)
+#define CACHELINESIZE 64
+
+#ifndef nitems
+#define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
+#endif
