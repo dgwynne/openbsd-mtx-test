@@ -40,6 +40,9 @@
 #include <stdio.h>
 #include <assert.h>
 
+/*
+ * compat with the kernel
+ */
 #define ISSET(_w, _m) ((_w) & (_m))
 
 #define intr_disable() (0)
@@ -49,31 +52,57 @@ struct cpu_info;
 
 #define curcpu() ((struct cpu_info *)1)
 
+/*
+ * pretend this is the top of src/sys/kern/kern_lock.c
+ */
+static void mtx_init_parking(void);
+
+void __attribute__((constructor))
+_kernel_lock_init(void)
+{
+	mtx_init_parking();
+}
+
 struct waiter {
 	struct mutex		*volatile mtx;
 	TAILQ_ENTRY(waiter)	 entry;
 } __aligned(64);
 
-TAILQ_HEAD(waiters, waiter);
+TAILQ_HEAD(mtx_waitlist, waiter);
 
 struct mtx_park {
 	struct cpu_info		*lock;
-	struct waiters		 waiters;
-} __aligned(64);
+	struct mtx_waitlist	 waiters;
+} __aligned(CACHELINESIZE);
 
-#define PARK_INITIALIZER(_park) {				\
-	.lock = NULL,						\
-	.waiters = TAILQ_HEAD_INITIALIZER(_park.waiters),	\
+#define MTX_PARKING_BITS	7
+#define MTX_PARKING_LOTS	(1 << MTX_PARKING_BITS)
+#define MTX_PARKING_MASK	(MTX_PARKING_LOTS - 1)
+
+static struct mtx_park mtx_parking[MTX_PARKING_LOTS];
+
+static void
+mtx_init_parking(void)
+{
+	size_t i;
+
+	for (i = 0; i < nitems(mtx_parking); i++) {
+		struct mtx_park *p = &mtx_parking[i];
+
+		p->lock = NULL;
+		TAILQ_INIT(&p->waiters);
+	}
 }
-
-static struct mtx_park mtx_parking[1] = {
-	PARK_INITIALIZER(mtx_parking[0]),
-};
 
 static struct mtx_park *
 mtx_park(struct mutex *mtx)
 {
-	return mtx_parking;
+	unsigned long addr = (unsigned long)mtx;
+	addr >>= 6;
+	addr ^= addr >> MTX_PARKING_BITS;
+	addr &= MTX_PARKING_MASK;
+
+	return &mtx_parking[addr];
 }
 
 static unsigned long
