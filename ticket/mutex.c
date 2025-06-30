@@ -30,6 +30,7 @@ mtx_enter(struct mutex *mtx)
 	unsigned int next = atomic_inc_int_nv(&mtx->next);
 	while (mtx->tick != next)
 		CPU_BUSY_CYCLE();
+	membar_enter();
 }
 
 void
