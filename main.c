@@ -16,6 +16,7 @@
 
 int ncpus;
 #define LOOPS 1000000LLU
+int x = 8;
 //000000
 
 struct state {
@@ -80,7 +81,7 @@ main(int argc, char *argv[])
 
 	nthreads = ncpus;
 
-	while ((ch = getopt(argc, argv, "l:n:")) != -1) {
+	while ((ch = getopt(argc, argv, "l:n:x:")) != -1) {
 		switch (ch) {
 		case 'n':
 			nthreads = strtonum(optarg, 1, ncpus, &errstr);
@@ -92,6 +93,11 @@ main(int argc, char *argv[])
 			    &errstr);
 			if (errstr != NULL)
 				errx(1, "loops: %s", errstr);
+			break;
+		case 'x':
+			x = strtonum(optarg, 0, 128, &errstr);
+			if (errstr != NULL)
+				errx(1, "x: %s", errstr);
 			break;
 		default:
 			usage();
