@@ -1,7 +1,7 @@
 /*
  * this is an extended version of ../parking/mutex.c that adds extra
- * fairness mtx_leave to move ownership instead of release it if the
- * next cpu has lost too many races to take the lock.
+ * fairness by having mtx_leave move ownership instead of release it
+ * if the next cpu has lost too many races to take the lock.
  *
  * the "fairness" is tunable with the -x opt.
  *
