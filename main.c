@@ -119,7 +119,7 @@ main(int argc, char *argv[])
 	s.loops = loops;
 	s.v = 0;
 
-	printf("starting %d threads for %llu loops\n", nthreads, loops);
+	warnx("starting %d threads for %llu loops", nthreads, loops);
 
 	pths = calloc(nthreads, sizeof(*pths));
 	if (pths == NULL)
