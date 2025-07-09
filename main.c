@@ -12,6 +12,9 @@
 
 #include <mutex.h>
 
+#define XSTR(S) #S
+#define STR(S) XSTR(S)
+
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
 
 int ncpus;
@@ -26,12 +29,12 @@ struct state {
 	volatile uint64_t	v;
 };
 
+const char *testname;
+
 __dead static void
 usage(void)
 {
-	extern char *__progname;
-
-	fprintf(stderr, "usage: %s [-n nthreads]\n", __progname);
+	fprintf(stderr, "usage: %s [-n nthreads]\n", testname);
 
 	exit(0);
 }
@@ -74,6 +77,12 @@ main(int argc, char *argv[])
 	int ch;
 	const char *errstr;
 	int error;
+
+#ifdef TESTNAME
+	setprogname(testname = STR(TESTNAME));
+#else
+	testname = getprogname();
+#endif
 
 	ncpus = sysconf(_SC_NPROCESSORS_ONLN);
 	if (ncpus == -1)
