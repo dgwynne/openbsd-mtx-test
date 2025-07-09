@@ -150,49 +150,17 @@ main(int argc, char *argv[])
 	if (getrusage(RUSAGE_SELF, &ru) == -1)
 		err(1, "getrusage self");
 
-	timespecsub(&tock, &tick, &diff);
-
-	printf("real time: ");
-	time2ival(diff.tv_sec);
-	printf(".%02lds, ", diff.tv_nsec / 10000000);
-
-	printf("user time: ");
-	time2ival(ru.ru_utime.tv_sec);
-	printf(".%02lds\n", ru.ru_utime.tv_usec / 10000);
-
 	if (s.v != nthreads * loops)
 		errx(1, "unexpected value after workers finished");
 
+	timespecsub(&tock, &tick, &diff);
+
+	printf("{");
+	printf("\"lock\":\"%s\",", testname);
+	printf("\"loops\":%llu,", loops);
+	printf("\"nthreads\":%d,", nthreads);
+	printf("\"time\":%lld.%03ld", diff.tv_sec, diff.tv_nsec / 1000000);
+	printf("}\n");
+
 	return (0);
-}
-
-struct interval {
-	const char	p;
-	time_t		s;
-};
-
-static const struct interval intervals[] = {
-	{ 'w',  60 * 60 * 24 * 7 },
-	{ 'd',  60 * 60 * 24 },
-	{ 'h',  60 * 60 },
-	{ 'm',  60 },
-	/* { 's',  1 }, */
-};
-
-static void
-time2ival(time_t sec)
-{
-	size_t i;
-
-	for (i = 0; i < nitems(intervals); i++) {
-		const struct interval *ival = &intervals[i];
-
-		if (sec >= ival->s) {
-			time_t d = sec / ival->s;
-                        printf("%lld%c", d, ival->p);
-			sec -= d * ival->s;
-		}
-	}
-
-	printf("%lld", sec);
 }
