@@ -64,7 +64,8 @@ _kernel_lock_init(void)
 }
 
 struct waiter {
-	struct mutex		*volatile mtx;
+	struct mutex		*mtx;
+	volatile unsigned int	 wait;
 	TAILQ_ENTRY(waiter)	 entry;
 } __aligned(64);
 
@@ -181,39 +182,38 @@ mtx_enter(struct mutex *mtx)
 		}
 	}
 
+	w.mtx = mtx;
+
 	/* take the really slow path */
 	p = mtx_park(mtx);
 
 	/* spinning++ */
-	w.mtx = mtx;
 	m = mtx_enter_park(p);
 	TAILQ_INSERT_TAIL(&p->waiters, &w, entry);
 	mtx_leave_park(p, m);
 
-	for (;;) {
+	do {
 		unsigned long o;
 
+		assert(owner != 0);
+
+		w.wait = 1;
+		membar_enter(); /* StoreStore|StoreLoad */
 		o = atomic_cas_ulong(&mtx->mtx_owner, owner, owner | 1);
-		if (o == owner || ISSET(o, 1)) {
-			while (w.mtx != NULL)
+		if (o == owner) {
+			while (w.wait)
 				CPU_BUSY_CYCLE();
+			membar_consumer(); /* don't pre-fetch owner */
+		} else if (o != 0) {
+			owner = o;
+			continue;
 		}
 
-		owner = atomic_cas_ulong(&mtx->mtx_owner, 0, self);
-		if (owner == 0)
-			break;
-
-		w.mtx = mtx;
-	}
+		owner = atomic_cas_ulong(&mtx->mtx_owner, 0, self | 1);
+	} while (owner != 0);
 
 	m = mtx_enter_park(p);
 	TAILQ_REMOVE(&p->waiters, &w, entry);
-	TAILQ_FOREACH(n, &p->waiters, entry) {
-		if (n->mtx == mtx) {
-			mtx->mtx_owner = self | 1;
-			break;
-		}
-	}
 	mtx_leave_park(p, m);
 	/* spinning-- */
 
@@ -244,9 +244,10 @@ mtx_leave(struct mutex *mtx)
 		p = mtx_park(mtx);
 		m = mtx_enter_park(p);
 		mtx->mtx_owner = 0;
+		membar_producer(); /* StoreStore */
 		TAILQ_FOREACH(w, &p->waiters, entry) {
 			if (w->mtx == mtx) {
-				w->mtx = NULL;
+				w->wait = 0;
 				break;
 			}
 		}
