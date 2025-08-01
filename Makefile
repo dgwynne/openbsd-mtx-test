@@ -1,7 +1,9 @@
 .include <bsd.own.mk>
 
-SUBDIR=	spinlock spinlockrd backoff \
+LOCKS?=	spinlock spinlockrd backoff \
 	ticket k42 k42alt wtflock spinlist spinlistfair parking parkingfair
+
+SUBDIR=${LOCKS}
 
 .PHONY: bench
 
