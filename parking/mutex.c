@@ -154,8 +154,10 @@ mtx_enter(struct mutex *mtx)
 	struct waiter w, *n;
 	unsigned long self = (unsigned long)pthread_self();
 	unsigned long owner;
-	unsigned int i;
 	unsigned long m;
+#ifndef NOMEDIUM
+	unsigned int i;
+#endif
 
 	owner = atomic_cas_ulong(&mtx->mtx_owner, 0, self);
 	if (owner == 0) {
@@ -170,6 +172,7 @@ mtx_enter(struct mutex *mtx)
 		abort();
 	}
 
+#ifndef NOMEDIUM
 	for (i = 0; i < 40; i++) {
 		if (ISSET(owner, 1))
 			break;
@@ -181,6 +184,7 @@ mtx_enter(struct mutex *mtx)
 				goto locked;
 		}
 	}
+#endif
 
 	w.mtx = mtx;
 
