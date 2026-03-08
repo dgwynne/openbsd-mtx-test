@@ -1,11 +1,18 @@
 DEBUG=-g
 
-CFLAGS+=-DTESTNAME=${.CURDIR:T}
+TESTNAME=${.CURDIR:T}
 
-LOOPS?=1000000
-NCPUS!!=getconf NPROCESSORS_ONLN
+CFLAGS+=-DTESTNAME=${TESTNAME}
 
-.PHONY: bench
+.PHONY: bench hyperfine_one
+
+.include "Makefile.vars"
 
 bench: all
-	@seq ${NCPUS} | while read n; do ${.OBJDIR}/test -n $$n -l ${LOOPS}; done
+	@seq ${NCPUS} | while read n; do ${.OBJDIR}/test ${PADDED} -n $$n -l ${LOOPS}; done
+
+hyperfine_one: all
+	@hyperfine -N -n "${TESTNAME} -n {threads} -l ${LOOPS} -w ${WORK}" \
+	    --export-json /tmp/foo \
+	    --parameter-scan threads 1 ${NCPUS} \
+	    "${.OBJDIR}/test -n {threads} -l ${LOOPS} -w ${WORK}"

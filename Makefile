@@ -1,13 +1,28 @@
 .include <bsd.own.mk>
 
-LOCKS?=	spinlock spinlockrd backoff \
-	ticket k42 k42alt wtflock spinlist spinlistfair parking parkingfair
+LOCKS?=spinlock,spinlockrd,backoff,ticket,k42,wtflock,parking
 
-SUBDIR=${LOCKS}
+# k42alt seems to deadlock
+# spinlist and spinlistfair are made up things
+# parkingfair is a toy
 
-.PHONY: bench
+SUBDIR=${LOCKS:S/,/ /g}
+
+.PHONY: bench hyperfine hyperfine_one
 
 bench: _SUBDIRUSE
 
-.include <bsd.subdir.mk>
+hyperfine_one: _SUBDIRUSE
 
+.include "Makefile.vars"
+
+JSON?=/dev/null
+
+hyperfine:
+	@hyperfine -N --export-json ${JSON} \
+	    --parameter-list LOCK ${LOCKS} \
+	    --parameter-list WORK ${WORK} \
+	    -n "{LOCK} -n ${NCPUS} -l ${LOOPS} -w {WORK}" \
+	    "${.CURDIR}/{LOCK}/obj/test -n ${NCPUS} -l ${LOOPS} -w {WORK}"
+
+.include <bsd.subdir.mk>
