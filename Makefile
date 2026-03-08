@@ -1,6 +1,6 @@
 .include <bsd.own.mk>
 
-LOCKS?=spinlock,spinlockrd,backoff,ticket,k42,wtflock,parking
+LOCKS?=spinlock,spinlockrd,backoff,ticket,k42,wtflock,parking,parking-nomedium
 
 # k42alt seems to deadlock
 # spinlist and spinlistfair are made up things
