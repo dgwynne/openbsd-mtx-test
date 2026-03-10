@@ -65,8 +65,11 @@ _kernel_lock_init(void)
 
 struct waiter {
 	struct mutex		*mtx;
-	volatile unsigned int	 wait;
 	TAILQ_ENTRY(waiter)	 entry;
+#ifdef PARKING_PAD
+	char			 __pad[128];
+#endif
+	volatile unsigned int	 wait;
 } __aligned(64);
 
 TAILQ_HEAD(mtx_waitlist, waiter);
