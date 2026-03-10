@@ -104,6 +104,38 @@ work_inc_nops(struct state *s)
 	}
 }
 
+/*
+ * access to a "resource" is protected by a mutex.
+ *
+ * threads coordinate via a mutex to take ownership of a "resource",
+ * which they then operate on outside the mutex, before taking the
+ * mutex again to return it.
+ */
+
+static void
+work_inc_res(struct state *s)
+{
+	uint64_t i;
+	uint64_t loops = s->loops;
+	uint64_t v;
+
+	for (i = 0; i < loops; i++) {
+		do {
+			mtx_enter(&s->mtx);
+			v = s->v;
+			if (v == 0)
+				s->v = 1;
+			mtx_leave(&s->mtx);
+		} while (v != 0);
+
+		s->pv++;
+
+		mtx_enter(&s->mtx);
+		s->v = 0;
+		mtx_leave(&s->mtx);
+	}
+}
+
 struct work {
 	const char *name;
 	void (*func)(struct state *);
@@ -114,6 +146,7 @@ static const struct work workers[] = {
 	{ "inc",	work_inc,		 check_inc },
 	{ "inc-padded",	work_inc_padded,	 check_inc_padded },
 	{ "inc-nops",	work_inc_nops,		 check_inc },
+	{ "res",	work_inc_res,		 check_inc_padded },
 };
 
 void *
