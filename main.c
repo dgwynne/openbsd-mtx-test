@@ -151,6 +151,28 @@ work_arc4random(struct state *s)
 }
 
 static void
+work_arc4random_wait(struct state *s)
+{
+	uint64_t i;
+	uint64_t loops = s->loops;
+	uint64_t v;
+	uint32_t w;
+
+	for (i = 0; i < loops; i++) {
+		mtx_enter(&s->mtx);
+		w = arc4random();
+		mtx_leave(&s->mtx);
+
+		w &= 0xfff;
+
+		while (w > 0) {
+			CPU_BUSY_CYCLE();
+			w--;
+		}
+	}
+}
+
+static void
 check_arc4random(struct state *s)
 {
 	/* nop */
@@ -168,6 +190,8 @@ static const struct work workers[] = {
 	{ "inc-nops",	work_inc_nops,		 check_inc },
 	{ "res",	work_inc_res,		 check_inc_padded },
 	{ "arc4random",	work_arc4random,	 check_arc4random },
+	{ "arc4random-wait",
+			work_arc4random_wait,	 check_arc4random },
 };
 
 void *
