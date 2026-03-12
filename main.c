@@ -136,6 +136,26 @@ work_inc_res(struct state *s)
 	}
 }
 
+static void
+work_arc4random(struct state *s)
+{
+	uint64_t i;
+	uint64_t loops = s->loops;
+	uint64_t v;
+
+	for (i = 0; i < loops; i++) {
+		mtx_enter(&s->mtx);
+		arc4random();
+		mtx_leave(&s->mtx);
+	}
+}
+
+static void
+check_arc4random(struct state *s)
+{
+	/* nop */
+}
+
 struct work {
 	const char *name;
 	void (*func)(struct state *);
@@ -147,6 +167,7 @@ static const struct work workers[] = {
 	{ "inc-padded",	work_inc_padded,	 check_inc_padded },
 	{ "inc-nops",	work_inc_nops,		 check_inc },
 	{ "res",	work_inc_res,		 check_inc_padded },
+	{ "arc4random",	work_arc4random,	 check_arc4random },
 };
 
 void *
