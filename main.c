@@ -39,6 +39,12 @@ struct state {
 	volatile uint64_t	pv;
 };
 
+struct tstate {
+	unsigned int		 id;
+	pthread_t		 pth;
+	struct state		*state;
+} __aligned(128);
+
 const char *testname;
 
 __dead static void
@@ -50,8 +56,9 @@ usage(void)
 }
 
 static void
-work_inc(struct state *s)
+work_inc(struct tstate *ts)
 {
+	struct state *s = ts->state;
 	uint64_t i;
 	uint64_t loops = s->loops;
 
@@ -70,8 +77,9 @@ check_inc(struct state *s)
 }
 
 static void
-work_inc_padded(struct state *s)
+work_inc_padded(struct tstate *ts)
 {
+	struct state *s = ts->state;
 	uint64_t i;
 	uint64_t loops = s->loops;
 
@@ -90,8 +98,25 @@ check_inc_padded(struct state *s)
 }
 
 static void
-work_inc_nops(struct state *s)
+work_inc_wait(struct tstate *ts)
 {
+	struct state *s = ts->state;
+	uint64_t i, c;
+	uint64_t loops = s->loops;
+
+	for (i = 0; i < loops; i++) {
+		mtx_enter(&s->mtx);
+		s->v++;
+		for (c = 0; c < 64; c++)
+			CPU_BUSY_CYCLE();
+		mtx_leave(&s->mtx);
+	}
+}
+
+static void
+work_inc_nops(struct tstate *ts)
+{
+	struct state *s = ts->state;
 	uint64_t i, c;
 	uint64_t loops = s->loops;
 
@@ -113,8 +138,9 @@ work_inc_nops(struct state *s)
  */
 
 static void
-work_inc_res(struct state *s)
+work_inc_res(struct tstate *ts)
 {
+	struct state *s = ts->state;
 	uint64_t i;
 	uint64_t loops = s->loops;
 	uint64_t v;
@@ -137,8 +163,9 @@ work_inc_res(struct state *s)
 }
 
 static void
-work_arc4random(struct state *s)
+work_arc4random(struct tstate *ts)
 {
+	struct state *s = ts->state;
 	uint64_t i;
 	uint64_t loops = s->loops;
 	uint64_t v;
@@ -151,8 +178,9 @@ work_arc4random(struct state *s)
 }
 
 static void
-work_arc4random_wait(struct state *s)
+work_arc4random_wait(struct tstate *ts)
 {
+	struct state *s = ts->state;
 	uint64_t i;
 	uint64_t loops = s->loops;
 	uint64_t v;
@@ -180,14 +208,14 @@ check_arc4random(struct state *s)
 
 struct work {
 	const char *name;
-	void (*func)(struct state *);
+	void (*func)(struct tstate *);
 	void (*check)(struct state *);
 };
 
 static const struct work workers[] = {
 	{ "inc",	work_inc,		 check_inc },
 	{ "inc-padded",	work_inc_padded,	 check_inc_padded },
-	{ "inc-nops",	work_inc_nops,		 check_inc },
+	{ "inc-wait",	work_inc_nops,		 check_inc },
 	{ "res",	work_inc_res,		 check_inc_padded },
 	{ "arc4random",	work_arc4random,	 check_arc4random },
 	{ "arc4random-wait",
@@ -197,12 +225,13 @@ static const struct work workers[] = {
 void *
 worker(void *arg)
 {
-	struct state *s = arg;
+	struct tstate *ts = arg;
+	struct state *s = ts->state;
 
 	while (s->bar)
 		pthread_yield();
 
-	s->w->func(s);
+	s->w->func(ts);
 
 	return (NULL);
 }
@@ -213,8 +242,8 @@ int
 main(int argc, char *argv[])
 {
 	struct state s;
+	struct tstate *tsp;
 
-	pthread_t *pths;
 	int nthreads;
 	uint64_t loops = LOOPS;
 	int i;
@@ -288,12 +317,17 @@ main(int argc, char *argv[])
 
 	warnx("starting %d threads for %llu loops", nthreads, loops);
 
-	pths = calloc(nthreads, sizeof(*pths));
-	if (pths == NULL)
-		err(1, "pth calloc");
+	tsp = calloc(nthreads, sizeof(*tsp));
+	if (tsp == NULL)
+		err(1, "threads calloc");
 
 	for (i = 0; i < nthreads; i++) {
-		error = pthread_create(&pths[i], NULL, worker, &s);
+		struct tstate *ts = &tsp[i];
+
+		ts->id = i;
+		ts->state = &s;
+
+		error = pthread_create(&ts->pth, NULL, worker, ts);
 		if (error != 0)
 			errc(1, error, "pthread_create %d", i);
 	}
@@ -304,8 +338,10 @@ main(int argc, char *argv[])
 	s.bar = 0;
 
 	for (i = 0; i < nthreads; i++) {
+		struct tstate *ts = &tsp[i];
 		void *v;
-		error = pthread_join(pths[i], &v);
+
+		error = pthread_join(ts->pth, &v);
 		if (error != 0)
 			errc(1, error, "pthread_join %d", i);
 		if (v != NULL)
