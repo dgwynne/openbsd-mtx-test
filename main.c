@@ -107,14 +107,14 @@ work_inc_wait(struct tstate *ts)
 	for (i = 0; i < loops; i++) {
 		mtx_enter(&s->mtx);
 		s->v++;
-		for (c = 0; c < 64; c++)
+		for (c = 0; c < 100; c++)
 			CPU_BUSY_CYCLE();
 		mtx_leave(&s->mtx);
 	}
 }
 
 static void
-work_inc_nops(struct tstate *ts)
+work_inc_wait_wait(struct tstate *ts)
 {
 	struct state *s = ts->state;
 	uint64_t i, c;
@@ -123,9 +123,11 @@ work_inc_nops(struct tstate *ts)
 	for (i = 0; i < loops; i++) {
 		mtx_enter(&s->mtx);
 		s->v++;
-		for (c = 0; c < 64; c++)
+		for (c = 0; c < 100; c++)
 			CPU_BUSY_CYCLE();
 		mtx_leave(&s->mtx);
+		for (c = 0; c < 100; c++)
+			CPU_BUSY_CYCLE();
 	}
 }
 
@@ -162,6 +164,13 @@ work_inc_res(struct tstate *ts)
 	}
 }
 
+/*
+ * arc4random takes 4 bytes at a time from a cryptographic stream cipher.
+ * the stream cipher produces a lot more than 4 bytes at a time, so the
+ * runtime of individual arc4random calls can vary. they're either short
+ * or long.
+ */
+
 static void
 work_arc4random(struct tstate *ts)
 {
@@ -176,6 +185,11 @@ work_arc4random(struct tstate *ts)
 		mtx_leave(&s->mtx);
 	}
 }
+
+/*
+ * use the result of arc4random as a delay time before attempting
+ * to retake the lock.
+ */
 
 static void
 work_arc4random_wait(struct tstate *ts)
@@ -215,7 +229,9 @@ struct work {
 static const struct work workers[] = {
 	{ "inc",	work_inc,		 check_inc },
 	{ "inc-padded",	work_inc_padded,	 check_inc_padded },
-	{ "inc-wait",	work_inc_nops,		 check_inc },
+	{ "inc-wait",	work_inc_wait,		 check_inc },
+	{ "inc-wait-wait",
+			work_inc_wait_wait,	 check_inc },
 	{ "res",	work_inc_res,		 check_inc_padded },
 	{ "arc4random",	work_arc4random,	 check_arc4random },
 	{ "arc4random-wait",
