@@ -131,6 +131,25 @@ work_inc_wait_wait(struct tstate *ts)
 	}
 }
 
+static void
+work_inc_unbalanced(struct tstate *ts)
+{
+	struct state *s = ts->state;
+	uint64_t i, c;
+	uint64_t loops = s->loops;
+	int slow = (ts->id == 0);
+
+	for (i = 0; i < loops; i++) {
+		mtx_enter(&s->mtx);
+		s->v++;
+		if (slow) {
+			for (c = 0; c < 100; c++)
+				CPU_BUSY_CYCLE();
+		}
+		mtx_leave(&s->mtx);
+	}
+}
+
 /*
  * access to a "resource" is protected by a mutex.
  *
@@ -232,6 +251,8 @@ static const struct work workers[] = {
 	{ "inc-wait",	work_inc_wait,		 check_inc },
 	{ "inc-wait-wait",
 			work_inc_wait_wait,	 check_inc },
+	{ "inc-unbalanced",
+			work_inc_unbalanced,	 check_inc },
 	{ "res",	work_inc_res,		 check_inc_padded },
 	{ "arc4random",	work_arc4random,	 check_arc4random },
 	{ "arc4random-wait",
